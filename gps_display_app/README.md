@@ -98,6 +98,14 @@ localhost) won't work. Browsers expose position/motion data only — per-
 satellite SNR needs a native app and is shown by the main dashboard when
 you use a real GPS chip over serial.
 
+## Native Android app (Kotlin)
+
+`android/` contains a native Kotlin app that shows everything the phone's
+GPS chip reports — including per-satellite constellation/id/C\/N0/elevation/
+azimuth and the raw NMEA stream, which browsers don't expose. A GitHub
+Actions workflow builds the installable APK on every push; see
+[`android/README.md`](android/README.md).
+
 ## Endpoints
 
 - `/` — live dashboard
