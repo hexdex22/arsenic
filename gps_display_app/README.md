@@ -77,6 +77,27 @@ python -m gps_display_app --device /dev/ttyUSB0 --mode console
 --refresh HZ     display refresh rate (default 2)
 ```
 
+## Phone app
+
+`phone/` contains a companion app for phones that reads the **phone's own
+GPS chip** through the browser geolocation API and continuously displays
+everything it reports: position (decimal + DMS), accuracy radius, altitude
+and altitude accuracy, speed, heading, fix timestamp and age, plus a
+rolling fix log, a map link, and a keep-screen-on toggle.
+
+It is a PWA — served over HTTPS it can be installed from the browser menu
+("Add to Home Screen" / "Install app") and then opens full-screen like a
+native app, working offline. Hosting options:
+
+- Enable **GitHub Pages** for this repo and open
+  `.../gps_display_app/phone/` on the phone, or
+- copy the three files in `phone/` to any static HTTPS host.
+
+Geolocation requires a secure context, so plain `http://` (other than
+localhost) won't work. Browsers expose position/motion data only — per-
+satellite SNR needs a native app and is shown by the main dashboard when
+you use a real GPS chip over serial.
+
 ## Endpoints
 
 - `/` — live dashboard
