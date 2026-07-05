@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#000000" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-512.png" />
 <title>GPS Speed</title>
 <style>
   html, body {
@@ -102,6 +105,11 @@
     });
   } else {
     render(null, false, "Geolocation is not supported by this browser");
+  }
+
+  // Cache the app for offline use and make it installable to the home screen.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 </script>
 </body>
