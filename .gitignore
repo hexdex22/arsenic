@@ -1,5 +1,8 @@
 .*
+!.github/
 /env/
+gps_display_app/android/**/build/
+gps_display_app/android/local.properties
 __pycache__
 *.egg-info
 geckodriver.log

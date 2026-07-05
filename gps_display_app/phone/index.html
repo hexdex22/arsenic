@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Phone GPS Live</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root {
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --ink-1: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6;
+    --good: #006300;
+    --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --ink-1: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --border: rgba(255,255,255,0.10);
+      --accent: #3987e5;
+      --good: #0ca30c;
+      --critical: #d03b3b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px;
+    padding-top: calc(14px + env(safe-area-inset-top));
+    background: var(--page); color: var(--ink-1);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+  }
+  h1 { font-size: 18px; margin: 0 0 2px; font-weight: 650; }
+  .sub { color: var(--muted); margin: 0 0 12px; font-size: 12px; }
+  .sub .dot { color: var(--good); }
+  .sub .dot.off { color: var(--critical); }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .card h2 {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 10px;
+  }
+  .hero { font-size: 24px; font-weight: 650; margin: 0 0 2px; overflow-wrap: anywhere; }
+  .hero-sub { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
+  .rows { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+  .rows dt { color: var(--ink-2); }
+  .rows dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .error {
+    display: none; border-color: var(--critical); color: var(--critical);
+  }
+  .error.show { display: block; }
+  .controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-weight: 600; color: #fff;
+    background: var(--accent); border: 0; border-radius: 10px;
+    padding: 12px 18px; flex: 1; min-width: 130px;
+  }
+  button.secondary { background: transparent; color: var(--ink-1); border: 1px solid var(--border); }
+  button:disabled { opacity: 0.45; }
+  a { color: var(--accent); }
+  .log {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px; line-height: 1.6; color: var(--ink-2);
+    white-space: pre; overflow-x: auto; margin: 0;
+  }
+</style>
+</head>
+<body>
+<h1>Phone GPS Live</h1>
+<p class="sub">
+  <span class="dot off" id="dot">●</span> <span id="conn">stopped</span> ·
+  <span id="count">0 fixes</span>
+</p>
+
+<div class="controls">
+  <button id="start">Start GPS</button>
+  <button id="wake" class="secondary" hidden>Keep screen on</button>
+</div>
+
+<div class="card error" id="error-card">
+  <h2>Problem</h2>
+  <div id="error"></div>
+</div>
+
+<div class="card">
+  <h2>Position</h2>
+  <p class="hero" id="latlon">—</p>
+  <p class="hero-sub" id="latlon-dms"></p>
+  <dl class="rows">
+    <dt>Accuracy (radius)</dt><dd id="acc">—</dd>
+    <dt>Altitude</dt><dd id="alt">—</dd>
+    <dt>Altitude accuracy</dt><dd id="altacc">—</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Motion</h2>
+  <dl class="rows">
+    <dt>Speed</dt><dd id="speed">—</dd>
+    <dt>Heading</dt><dd id="heading">—</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Fix time</h2>
+  <dl class="rows">
+    <dt>Timestamp</dt><dd id="time">—</dd>
+    <dt>Age</dt><dd id="age">—</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Actions</h2>
+  <dl class="rows">
+    <dt>Show on map</dt><dd><a id="maplink" href="#" target="_blank" rel="noopener">open</a></dd>
+    <dt>Copy coordinates</dt><dd><a href="#" id="copy">copy</a></dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Fix log</h2>
+  <pre class="log" id="log">waiting for GPS…</pre>
+</div>
+
+<p class="sub">Data comes from this phone's GPS chip via the browser
+geolocation API (latitude, longitude, altitude, accuracy, speed, heading,
+fix time — per-satellite data is not exposed to web apps). Nothing leaves
+your phone.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+let last = null, count = 0, watchId = null, wakeLock = null;
+const logLines = [];
+
+function toDMS(value, pos, neg) {
+  const hemi = value >= 0 ? pos : neg;
+  const abs = Math.abs(value);
+  const deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = (minFloat - min) * 60;
+  return `${deg}°${min}'${sec.toFixed(2)}" ${hemi}`;
+}
+
+function onFix(fix) {
+  last = fix; count += 1;
+  const c = fix.coords;
+  $("error-card").classList.remove("show");
+  $("dot").classList.remove("off");
+  $("conn").textContent = "live";
+  $("count").textContent = count + " fixes";
+
+  $("latlon").textContent = c.latitude.toFixed(6) + ", " + c.longitude.toFixed(6);
+  $("latlon-dms").textContent =
+    toDMS(c.latitude, "N", "S") + "  " + toDMS(c.longitude, "E", "W");
+  $("acc").textContent = c.accuracy != null ? "± " + c.accuracy.toFixed(1) + " m" : "—";
+  $("alt").textContent = c.altitude != null ? c.altitude.toFixed(1) + " m" : "not reported";
+  $("altacc").textContent =
+    c.altitudeAccuracy != null ? "± " + c.altitudeAccuracy.toFixed(1) + " m" : "—";
+  $("speed").textContent =
+    c.speed != null
+      ? c.speed.toFixed(1) + " m/s (" + (c.speed * 3.6).toFixed(1) + " km/h)"
+      : "not reported";
+  $("heading").textContent =
+    c.heading != null && !Number.isNaN(c.heading)
+      ? c.heading.toFixed(1) + "°"
+      : "not reported";
+  const when = new Date(fix.timestamp);
+  $("time").textContent = when.toLocaleTimeString();
+  $("maplink").href =
+    "https://www.openstreetmap.org/?mlat=" + c.latitude + "&mlon=" + c.longitude +
+    "#map=17/" + c.latitude + "/" + c.longitude;
+
+  logLines.push(
+    when.toLocaleTimeString() + "  " +
+    c.latitude.toFixed(6) + "," + c.longitude.toFixed(6) +
+    "  ±" + Math.round(c.accuracy) + "m" +
+    (c.speed != null ? "  " + c.speed.toFixed(1) + "m/s" : "")
+  );
+  if (logLines.length > 12) logLines.shift();
+  $("log").textContent = logLines.join("\n");
+}
+
+function onError(err) {
+  $("dot").classList.add("off");
+  $("conn").textContent = "error";
+  const messages = {
+    1: "Location permission denied. Allow location access for this site in " +
+       "your browser settings, then tap Start GPS again.",
+    2: "Position unavailable — no GPS signal. Try moving outdoors.",
+    3: "Timed out waiting for a GPS fix.",
+  };
+  $("error").textContent = messages[err.code] || err.message;
+  $("error-card").classList.add("show");
+}
+
+function start() {
+  if (!("geolocation" in navigator)) {
+    $("error").textContent = "This browser does not expose geolocation.";
+    $("error-card").classList.add("show");
+    return;
+  }
+  if (!window.isSecureContext) {
+    $("error").textContent =
+      "Geolocation needs a secure (https) page. Open this app from an " +
+      "https URL and try again.";
+    $("error-card").classList.add("show");
+    return;
+  }
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    $("start").textContent = "Start GPS";
+    $("dot").classList.add("off");
+    $("conn").textContent = "stopped";
+    return;
+  }
+  watchId = navigator.geolocation.watchPosition(onFix, onError, {
+    enableHighAccuracy: true,   // use the GPS chip, not wifi/cell only
+    maximumAge: 0,
+    timeout: 30000,
+  });
+  $("start").textContent = "Stop GPS";
+  $("conn").textContent = "waiting for fix…";
+}
+
+$("start").addEventListener("click", start);
+
+// Age ticker
+setInterval(() => {
+  if (last) $("age").textContent = ((Date.now() - last.timestamp) / 1000).toFixed(1) + " s";
+}, 500);
+
+// Copy coordinates
+$("copy").addEventListener("click", async e => {
+  e.preventDefault();
+  if (last && navigator.clipboard) {
+    await navigator.clipboard.writeText(
+      last.coords.latitude.toFixed(6) + ", " + last.coords.longitude.toFixed(6)
+    );
+    e.target.textContent = "copied!";
+    setTimeout(() => { e.target.textContent = "copy"; }, 1500);
+  }
+});
+
+// Screen wake lock (supported on Android Chrome, iOS 16.4+)
+if ("wakeLock" in navigator) {
+  const button = $("wake");
+  button.hidden = false;
+  button.addEventListener("click", async () => {
+    try {
+      if (wakeLock) {
+        await wakeLock.release(); wakeLock = null;
+        button.textContent = "Keep screen on";
+      } else {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => {
+          wakeLock = null; button.textContent = "Keep screen on";
+        });
+        button.textContent = "Screen stays on";
+      }
+    } catch (err) { /* denied (e.g. low battery) — leave button as-is */ }
+  });
+}
+
+// Offline support / installability; fails harmlessly where not allowed
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>

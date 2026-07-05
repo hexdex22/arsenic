@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GPS Live</string>
+    <string name="waiting">Waiting for GPS fix… (works best outdoors)</string>
+    <string name="need_permission">Location permission is required to read
+        the GPS chip. Tap here to grant it.</string>
+</resources>
