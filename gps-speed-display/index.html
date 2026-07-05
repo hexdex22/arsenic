@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#000000" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-512.png" />
+<title>GPS Speed</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #888;
+  }
+  main {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  #speed {
+    font-size: 22vw;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: #fff;
+  }
+  #speed.inaccurate {
+    color: #ff3b30;
+  }
+  #unit {
+    font-size: 5vw;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+  }
+  #status {
+    font-size: 4vw;
+    min-height: 1.5em;
+    text-align: center;
+    padding: 0 1rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div id="speed">--</div>
+  <div id="unit">km/h</div>
+  <div id="status">Waiting for GPS fix…</div>
+</main>
+<script>
+  // A fix is considered trustworthy only when the receiver's reported
+  // horizontal accuracy is within this radius. Beyond it (urban canyon,
+  // indoors, cold start) the Doppler speed is unreliable, so we flag it.
+  const ACCURACY_THRESHOLD_METERS = 20;
+  // Fixes older than this are stale and can't describe *current* speed.
+  const MAX_FIX_AGE_MS = 3000;
+
+  const speedEl = document.getElementById("speed");
+  const statusEl = document.getElementById("status");
+
+  function render(speedMs, accurate, statusText) {
+    speedEl.textContent = speedMs === null ? "--" : (speedMs * 3.6).toFixed(1);
+    speedEl.classList.toggle("inaccurate", !accurate);
+    statusEl.textContent = statusText;
+  }
+
+  function onPosition(pos) {
+    const { speed, accuracy } = pos.coords;
+    const age = Date.now() - pos.timestamp;
+
+    // speed is null when the receiver can't derive it, and some
+    // platforms report a negative value for an invalid reading.
+    const speedValid = speed !== null && speed >= 0;
+    const accurate =
+      speedValid && accuracy <= ACCURACY_THRESHOLD_METERS && age <= MAX_FIX_AGE_MS;
+
+    let status;
+    if (!speedValid) {
+      status = "Speed unavailable from receiver";
+    } else if (accuracy > ACCURACY_THRESHOLD_METERS) {
+      status = `Low accuracy: ±${Math.round(accuracy)} m`;
+    } else if (age > MAX_FIX_AGE_MS) {
+      status = `Stale fix (${(age / 1000).toFixed(1)} s old)`;
+    } else {
+      status = `Accuracy ±${Math.round(accuracy)} m`;
+    }
+
+    render(speedValid ? speed : null, accurate, status);
+  }
+
+  function onError(err) {
+    render(null, false, `GPS error: ${err.message}`);
+  }
+
+  if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000,
+    });
+  } else {
+    render(null, false, "Geolocation is not supported by this browser");
+  }
+
+  // Cache the app for offline use and make it installable to the home screen.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+</body>
+</html>
